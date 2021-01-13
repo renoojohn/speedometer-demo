@@ -45,7 +45,8 @@ function BenchmarkRunner(suites, client) {
 
 BenchmarkRunner.prototype.waitForElement = function (selector) {
     var promise = new SimplePromise;
-    var contentDocument = this._frame.contentDocument;
+    //var contentDocument = this._frame.contentDocument;
+    var contentDocument = this._frame.document;
 
     function resolveIfReady() {
         var element = contentDocument.querySelector(selector);
@@ -91,6 +92,42 @@ BenchmarkRunner.prototype._appendFrame = function (src) {
     return frame;
 }
 
+BenchmarkRunner.prototype._appendPopup = function (src) {
+    var frame = document.createElement('iframe');
+    frame.style.width = '800px';
+    frame.style.height = '600px';
+    frame.style.border = '0px none';
+    frame.style.position = 'absolute';
+    frame.setAttribute('scrolling', 'no');
+
+    var marginLeft = parseInt(getComputedStyle(document.body).marginLeft);
+    var marginTop = parseInt(getComputedStyle(document.body).marginTop);
+    if (window.innerWidth > 800 + marginLeft && window.innerHeight > 600 + marginTop) {
+        frame.style.left = marginLeft + 'px';
+        frame.style.top = marginTop + 'px';
+    } else {
+        frame.style.left = '0px';
+        frame.style.top = '0px';
+    }
+
+    var newWindow=open('test.html', 'example','width=300, height=300');
+    newWindow.focus();
+    
+    newWindow.onload=function(){
+        let html=`<div style="font-size:30px">Welcome!</div>`;
+        newWindow.document.body.insertAdjacentHTML('afterbegin',html);
+    }
+
+    if (this._client && this._client.willAddTestFrame)
+        this._client.willAddTestFrame(newWindow);
+
+    //document.body.insertBefore(newWindow, document.body.firstChild);
+    this._frame = newWindow;
+    // return frame;
+    return newWindow;
+}
+
+
 BenchmarkRunner.prototype._waitAndWarmUp = function () {
     var startTime = Date.now();
 
@@ -128,7 +165,6 @@ BenchmarkRunner.prototype._runTest = function(suite, test, prepareReturnValue, c
 
     self._writeMark(suite.name + '.' + test.name + '-start');
     var startTime = now();
-    debugger;
     test.run(prepareReturnValue, contentWindow, contentDocument);
     var endTime = now();
     self._writeMark(suite.name + '.' + test.name + '-sync-end');
@@ -209,7 +245,7 @@ BenchmarkRunner.prototype.step = function (state) {
     if (state.isFirstTest()) {
         this._removeFrame();
         var self = this;
-        return state.prepareCurrentSuite(this, this._appendFrame()).then(function (prepareReturnValue) {
+        return state.prepareCurrentSuite(this, this._appendPopup()).then(function (prepareReturnValue) {
             self._prepareReturnValue = prepareReturnValue;
             return self._runTestAndRecordResults(state);
         });
